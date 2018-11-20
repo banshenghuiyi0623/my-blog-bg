@@ -1,8 +1,11 @@
 
 import * as Router from 'koa-router'
-import getStatic from './getStatic'
+const getStatic = require('./getStatic')
+const test = require('./testrouter')
 const router = new Router()
 
-router.use('', getStatic.routes(), getStatic.allowedMethods())
+router
+  // .use('*', test.routes(), test.allowedMethods())
+  .use('*', getStatic.routes(), getStatic.allowedMethods)
 
-export default router
+module.exports = router

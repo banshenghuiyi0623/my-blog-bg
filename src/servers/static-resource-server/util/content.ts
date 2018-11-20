@@ -1,7 +1,7 @@
+import * as Koa from 'koa'
 const path = require('path')
 const fs = require('fs')
-import { file } from './file'
-import * as Koa from 'koa'
+const file = require('./file')
 
 /**
  * @description 获取文件内容
@@ -15,7 +15,7 @@ async function getContent ( ctx: Koa.Context, filePath: string ) {
   let reqPath = path.join(filePath, ctx.url)
   console.log('reqPath:', reqPath)
   const isExist = fs.existsSync(filePath)
-
+  console.log('isExist', isExist)
   let content = ''
   content = isExist
     ? await file( reqPath )
@@ -23,4 +23,4 @@ async function getContent ( ctx: Koa.Context, filePath: string ) {
   return content
 }
 
-export { getContent }
+module.exports =  getContent

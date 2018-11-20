@@ -1,16 +1,13 @@
 import * as Koa from 'koa'
-import { handleCors } from './middlewares/handleCors'
-import routers from './routers/index'
+const routers = require('./routers/index')
 
 const app = new Koa()
 
-// const respDataPackage = require('./middlewares/respDataPackage')
-
 // 初始化路由中间件
-app.use(handleCors)
+app
   .use(routers.routes())
   .use(routers.allowedMethods())
 
-app.listen(3009, () => {
-  console.log('server run as 3009')
+app.listen(3008, () => {
+  console.log('server run as 3008')
 })

@@ -3,11 +3,11 @@
  * 
  */
 import * as Router from 'koa-router'
-import getStaticController  from '../controllers/getStatic'
+const getStaticController = require('../controllers/getStatic')
 
 const router = new Router();
 
 const routers = router
-  .get('', getStaticController)
+  .get('*', getStaticController)
 
-export default routers
+module.exports = routers
