@@ -1,7 +1,6 @@
 
 import * as Router from 'koa-router'
 const getStatic = require('./getStatic')
-const test = require('./testrouter')
 const router = new Router()
 
 router
