@@ -1,8 +1,9 @@
 import * as Koa from 'koa'
 import * as path from 'path'
 import * as fs from 'fs'
+const zlib = require('zlib')
 
-const cacheConfig = require('../config/cache')
+const config = require('../config')
 //资源类型
 const mimes = require('../util/mimes')
 
@@ -18,6 +19,7 @@ function parseMime (url: string) {
   return  mimes[extName]
 }
 
+// 获取文件内容
 function getFile(path: string) {
   return new Promise((resolve, reject) => {
     fs.readFile(path, (err, data) => {
@@ -27,6 +29,7 @@ function getFile(path: string) {
   })
 }
 
+// 检查文件是否存在
 function checkFile(path: string) {
   return new Promise((resolve, reject) => {
     fs.exists(path, exists => {
@@ -35,6 +38,7 @@ function checkFile(path: string) {
   })
 }
 
+// 获取文件最后修改时间
 function getFileModifiedTime( realPath: string ) {
   return new Promise((resolve, reject) => {
     fs.stat(realPath, (err, stat) => {
@@ -44,25 +48,52 @@ function getFileModifiedTime( realPath: string ) {
   })
 }
 
+//  设置缓存响应头
 async function setCacheHeader( ctx: Koa.Context, fullStaticPath: string ) {
   let ext = path.extname( ctx.url )
   ext = ext ? ext.slice(1) : 'unknown'
-  if (ext.match(cacheConfig.Expires.fileMatch)) {
+  if (ext.match(config.Expires.fileMatch)) {
     let expires = new Date()
-    expires.setTime(expires.getTime() + cacheConfig.Expires.maxAge * 1000)
+    expires.setTime(expires.getTime() + config.Expires.maxAge * 1000)
     ctx.set("Expires", expires.toUTCString())
-    ctx.set("Cache-Control", `max-age=${cacheConfig.Expires.maxAge}`)
-    ctx.set('ETag', '00002')
+    ctx.set("Cache-Control", `max-age=${config.Expires.maxAge}`)
+    ctx.set('ETag', '00003')
   }
   const lastModified = await getFileModifiedTime(fullStaticPath).catch(err => undefined)
   lastModified && ctx.set('Last-Modified', lastModified)
 }
 
+// 开启Gzip压缩
+function setGzip( ctx: Koa.Context, realPath: string, ext: string ) {
+  const acceptEncoding = ctx.req.headers['accept-encoding'] || ''
+  const matched = ext.match(config.Compress.match)
+  // acceptEncoding: string[], when did that happen, I wonder how, I wonder why
+  let raw = fs.createReadStream(realPath)
+
+  if (matched && (acceptEncoding as string).match(/\bgzip\b/)) {
+    console.log('setGzip-zip-start')
+    ctx.status = 200
+    ctx.set('Content-Encoding', 'gzip')
+    ctx.body = raw.pipe(zlib.createGzip())
+    console.log('setGzip-zip-end')
+  } else if (matched && (acceptEncoding as string).match(/\bdeflate\b/)) {
+    let raw = fs.createReadStream(realPath)
+    ctx.status = 200
+    ctx.set('Content-Encoding', 'deflate')
+    raw.pipe(zlib.createDeflate()).pipe(ctx.res)
+  } else {
+    let raw = fs.createReadStream(realPath)
+    ctx.status = 200
+    raw.pipe(ctx.res)
+  }
+}
+
+// 处理响应
 async function getStatic(ctx: Koa.Context) {
   const fullStaticPath = path.join(__dirname, staticPath)
   const reqPath = path.join(fullStaticPath, ctx.url)
   const exists = await checkFile(reqPath)
-
+  
   if (!exists) {
     ctx.res.writeHead(404)
     ctx.res.write('sorry can`t find the file.')
@@ -72,6 +103,8 @@ async function getStatic(ctx: Koa.Context) {
     const _mime = parseMime( ctx.url )
 
     ctx.type = _mime || "text/plain"
+
+    // setGzip(ctx, reqPath, path.extname(ctx.url))
 
     if (content) {
       await setCacheHeader(ctx, fullStaticPath)
