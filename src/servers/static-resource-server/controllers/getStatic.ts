@@ -66,18 +66,17 @@ async function setCacheHeader( ctx: Koa.Context, fullStaticPath: string ) {
 // 开启Gzip压缩
 function setGzip( ctx: Koa.Context, realPath: string, ext: string ) {
   const acceptEncoding = ctx.req.headers['accept-encoding'] || ''
+  console.log('acceptencoding:', acceptEncoding)
   const matched = ext.match(config.Compress.match)
   // acceptEncoding: string[], when did that happen, I wonder how, I wonder why
   let raw = fs.createReadStream(realPath)
 
   if (matched && (acceptEncoding as string).match(/\bgzip\b/)) {
-    console.log('setGzip-zip-start')
     ctx.status = 200
     ctx.set('Content-Encoding', 'gzip')
     ctx.body = raw.pipe(zlib.createGzip())
-    console.log('setGzip-zip-end')
+    // raw.pipe(zlib.createGzip()).pipe(ctx.res)
   } else if (matched && (acceptEncoding as string).match(/\bdeflate\b/)) {
-    let raw = fs.createReadStream(realPath)
     ctx.status = 200
     ctx.set('Content-Encoding', 'deflate')
     raw.pipe(zlib.createDeflate()).pipe(ctx.res)
@@ -104,23 +103,20 @@ async function getStatic(ctx: Koa.Context) {
 
     ctx.type = _mime || "text/plain"
 
-    // setGzip(ctx, reqPath, path.extname(ctx.url))
+    await setCacheHeader(ctx, fullStaticPath)
+    ctx.status = 200
 
-    if (content) {
-      await setCacheHeader(ctx, fullStaticPath)
-      ctx.status = 200
-
-      if (ctx.fresh) {
-        ctx.status = 304
-        return
-      }
-
-      ctx.res.write(content, 'binary')
-      ctx.res.end()
+    if (ctx.fresh) {
+      ctx.status = 304
+      return
     } else {
-      ctx.status = 500
-      ctx.res.end()
-    } 
+      try {
+        setGzip(ctx, reqPath, path.extname(ctx.url))
+      } catch (e) {
+        console.log(e)
+        ctx.status = 500
+      }
+    }
   }
 }
 
